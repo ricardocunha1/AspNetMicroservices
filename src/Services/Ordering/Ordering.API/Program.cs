@@ -17,10 +17,10 @@ namespace Ordering.API
         public static void Main(string[] args)
         {
             var host = CreateHostBuilder(args).Build();
-            host.MigrateDatabase<OrderContext>(async (context, services) =>
+            host.MigrateDatabase<OrderContext>((context, services) =>
             {
                 var logger = services.GetRequiredService<ILogger<OrderContextSeed>>();
-                await OrderContextSeed.SeedAsync(context, logger);
+                OrderContextSeed.SeedAsync(context, logger).Wait();
             });
             host.Run();
         }

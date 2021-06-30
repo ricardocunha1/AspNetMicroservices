@@ -42,7 +42,7 @@ namespace Ordering.API.Controllers
             return Ok(result);
         }
 
-        [HttpPost(Name = "UpdateOrder")]
+        [HttpPut(Name = "UpdateOrder")]
         [ProducesResponseType((int)StatusCodes.Status204NoContent)]
         [ProducesResponseType((int)StatusCodes.Status404NotFound)]
         [ProducesDefaultResponseType]
