@@ -1,6 +1,9 @@
-﻿using Basket.API.Entities;
+﻿using AutoMapper;
+using Basket.API.Entities;
 using Basket.API.GrpcServices;
 using Basket.API.Repositories;
+using EventBus.Messages.Events;
+using MassTransit;
 using Microsoft.AspNetCore.Mvc;
 using System;
 using System.Collections.Generic;
@@ -16,11 +19,15 @@ namespace Basket.API.Controllers
     {
         private readonly IBasketRepository _repository;
         private readonly DiscountGrpcService _discountGrpcService;
+        private readonly IMapper _mapper;
+        private readonly IPublishEndpoint _publisher;
 
-        public BasketController(IBasketRepository repo, DiscountGrpcService discountGrpcService)
+        public BasketController(IBasketRepository repo, DiscountGrpcService discountGrpcService, IMapper mapper, IPublishEndpoint publisher)
         {
             _repository = repo;
             _discountGrpcService = discountGrpcService;
+            _mapper = mapper;
+            _publisher = publisher;
         }
 
         [HttpGet("{userName}", Name = "GetBasket")]
@@ -50,6 +57,29 @@ namespace Basket.API.Controllers
         {
             await _repository.DeleteBasket(userName);
             return Ok();
+        }
+
+        [HttpPost]
+        [Route("[action]")]
+        [ProducesResponseType((int)HttpStatusCode.Accepted)]
+        [ProducesResponseType((int)HttpStatusCode.BadRequest)]
+        public async Task<IActionResult> Checkout([FromBody] BasketCheckout basketCheckout)
+        {
+            // get basket w/ total price
+            var basket = await _repository.GetBasket(basketCheckout.UserName);
+            if (basket == null)
+                return BadRequest();
+
+            // create basket checkout event and set total price
+            var eventMsg = _mapper.Map<BasketCheckoutEvent>(basketCheckout);
+            eventMsg.TotalPrice = basket.TotalPrice;
+            // send checkout event to rabbitmq
+            await _publisher.Publish(eventMsg);
+
+            // remove the basket
+            await _repository.DeleteBasket(basket.Username);
+
+            return Accepted();
         }
     }
 }
